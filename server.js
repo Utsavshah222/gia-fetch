@@ -1,62 +1,74 @@
 const express = require("express");
-const axios = require("axios");
+const puppeteer = require("puppeteer");
 
-const app = express(); // ✅ THIS WAS MISSING
+const app = express();
+const PORT = process.env.PORT || 10000;
 
-const API_KEY = "04f15187821238376385877391c25996";
-
-/* =========================
-   HOME
-========================= */
+// Health check
 app.get("/", (req, res) => {
-  res.send("GIA Clarity API Running ✅");
+  res.json({
+    status: "OK",
+    message: "GIA Clarity API Running (Puppeteer Mode)"
+  });
 });
 
-/* =========================
-   CLARITY API
-========================= */
+// MAIN API
 app.get("/clarity", async (req, res) => {
   const report = req.query.report;
 
   if (!report) {
-    return res.json({ error: "Missing report number" });
+    return res.json({ error: "Report number missing" });
   }
 
+  let browser = null;
+
   try {
-    const targetUrl = `https://www.gia.edu/report-check?locale=en_US&reportno=${report}`;
+    browser = await puppeteer.launch({
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage"
+      ]
+    });
 
-    const scraperUrl = `https://api.scraperapi.com/?api_key=${API_KEY}&url=${encodeURIComponent(
-      targetUrl
-    )}&render=true`;
+    const page = await browser.newPage();
 
-    const response = await axios.get(scraperUrl, {
+    // Real browser headers
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+    );
+
+    const url = `https://www.gia.edu/report-check?locale=en_US&reportno=${report}`;
+
+    await page.goto(url, {
+      waitUntil: "networkidle2",
       timeout: 60000
     });
 
-    const html = response.data;
+    // Wait for clarity element
+    await page.waitForSelector("#CLARITY_GRADE", { timeout: 20000 }).catch(() => {});
 
-    const match = html.match(
-      /id=["']CLARITY_GRADE["'][^>]*>([^<]+)</i
-    );
+    // Extract data inside browser context
+    const clarity = await page.evaluate(() => {
+      const el = document.querySelector("#CLARITY_GRADE");
+      return el ? el.innerText.trim() : null;
+    });
 
-    const clarity = match ? match[1].trim() : "Not Found";
+    await browser.close();
 
-    res.json({
-      report,
-      clarity
+    return res.json({
+      report: report,
+      clarity: clarity || "Not Found"
     });
 
   } catch (err) {
-    res.status(500).json({
+    if (browser) await browser.close();
+
+    return res.json({
       error: err.message
     });
   }
 });
-
-/* =========================
-   START SERVER
-========================= */
-const PORT = process.env.PORT || 10000;
 
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
