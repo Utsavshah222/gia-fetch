@@ -1,5 +1,5 @@
 const express = require("express");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
 
 const app = express();
 
@@ -8,6 +8,7 @@ app.get("/gia", async (req, res) => {
 
   try {
     const browser = await puppeteer.launch({
+      executablePath: "/usr/bin/chromium-browser",
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
       headless: "new"
     });
@@ -19,7 +20,7 @@ app.get("/gia", async (req, res) => {
       { waitUntil: "networkidle2" }
     );
 
-    await new Promise(r => setTimeout(r, 4000));
+    await page.waitForSelector("#CLARITY_GRADE", { timeout: 15000 });
 
     const data = await page.evaluate(() => {
       const get = (id) =>
