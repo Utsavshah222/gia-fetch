@@ -3,33 +3,31 @@ const axios = require("axios");
 
 const app = express();
 
+const API_KEY = "04f15187821238376385877391c25996";
+
 /* =========================
-   HEALTH CHECK
+   HOME
 ========================= */
 app.get("/", (req, res) => {
-  res.send("Server running ✅");
+  res.send("GIA Clarity API Running ✅");
 });
 
 /* =========================
-   GIA SCRAPER API
+   GET CLARITY ONLY
 ========================= */
-app.get("/gia", async (req, res) => {
+app.get("/clarity", async (req, res) => {
   const report = req.query.report;
 
   if (!report) {
-    return res.json({ error: "Report number missing" });
+    return res.json({ error: "Missing report number" });
   }
 
   try {
-    console.log("Fetching report:", report);
+    const targetUrl = `https://www.gia.edu/report-check?locale=en_US&reportno=${report}`;
 
-    const apiKey = "04f15187821238376385877391c25996";
-
-    const targetUrl = `https://www.gia.edu/report-check?reportno=${report}`;
-
-    const scraperUrl = `https://api.scraperapi.com/?api_key=${apiKey}&url=${encodeURIComponent(
+    const scraperUrl = `https://api.scraperapi.com/?api_key=${API_KEY}&url=${encodeURIComponent(
       targetUrl
-    )}&render=true&country_code=us`;
+    )}&render=true`;
 
     const response = await axios.get(scraperUrl, {
       timeout: 60000
@@ -37,32 +35,22 @@ app.get("/gia", async (req, res) => {
 
     const html = response.data;
 
-    console.log("HTML received length:", html.length);
+    // Extract ONLY clarity safely
+    const match = html.match(
+      /id=["']CLARITY_GRADE["'][^>]*>([^<]+)</i
+    );
 
-    const get = (id) => {
-      const regex = new RegExp(`id="${id}"[^>]*>(.*?)<`, "i");
-      const match = html.match(regex);
+    const clarity = match ? match[1].trim() : "Not Found";
 
-      return match
-        ? match[1].replace(/<[^>]*>/g, "").trim()
-        : "Not Found";
-    };
+    console.log("Clarity:", clarity);
 
-    const data = {
-      clarity: get("CLARITY_GRADE"),
-      color: get("COLOR_GRADE"),
-      weight: get("WEIGHT"),
-      cut: get("CUT_GRADE"),
-      polish: get("POLISH"),
-      symmetry: get("SYMMETRY")
-    };
-
-    console.log("Parsed data:", data);
-
-    res.json(data);
+    res.json({
+      report: report,
+      clarity: clarity
+    });
 
   } catch (err) {
-    console.error("ERROR:", err.message);
+    console.error(err.message);
 
     res.status(500).json({
       error: err.message
