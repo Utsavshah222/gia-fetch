@@ -22,7 +22,7 @@ app.get("/clarity", async (req, res) => {
 
   try {
     // 🔑 YOUR SCRAPERAPI KEY HERE
-    const SCRAPER_API_KEY = "YOUR_KEY";
+    const SCRAPER_API_KEY = "04f15187821238376385877391c25996";
 
     const targetUrl = `https://rdwb.gia.edu/?reportno=${report}&locale=en_US&env=prod&USEREG=1&qr=false`;
 
