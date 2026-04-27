@@ -4,47 +4,63 @@ const axios = require("axios");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// HEALTH CHECK
 app.get("/", (req, res) => {
-  res.json({ status: "OK" });
+  res.json({
+    status: "OK",
+    message: "GIA Scraper API Running (ScraperAPI Mode)"
+  });
 });
 
+// MAIN API
 app.get("/clarity", async (req, res) => {
   const report = req.query.report;
 
   if (!report) {
-    return res.json({ error: "Report missing" });
+    return res.status(400).json({ error: "Report missing" });
   }
 
   try {
-    const url = `https://rdwb.gia.edu/?reportno=${report}&locale=en_US&env=prod&USEREG=1&qr=false`;
+    // 🔑 YOUR SCRAPERAPI KEY HERE
+    const SCRAPER_API_KEY = "YOUR_KEY";
+
+    const targetUrl = `https://rdwb.gia.edu/?reportno=${report}&locale=en_US&env=prod&USEREG=1&qr=false`;
+
+    const url = `https://api.scraperapi.com?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(targetUrl)}`;
 
     const response = await axios.get(url, {
-      timeout: 900000,
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json"
-      }
+      timeout: 30000
     });
 
     const data = response.data;
 
+    // Try multiple possible paths (GIA response changes sometimes)
     const clarity =
       data?.clarity ||
       data?.report?.clarity ||
-      "Not Found";
+      data?.result?.clarity ||
+      null;
 
-    res.json({
+    if (!clarity) {
+      return res.json({
+        report,
+        clarity: "Not Found",
+        raw: data
+      });
+    }
+
+    return res.json({
       report,
       clarity
     });
 
   } catch (err) {
-    res.json({
+    return res.status(500).json({
       error: err.message
     });
   }
 });
 
 app.listen(PORT, () => {
-  console.log("Server running on", PORT);
+  console.log("Server running on port", PORT);
 });
