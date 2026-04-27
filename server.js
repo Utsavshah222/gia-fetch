@@ -29,7 +29,7 @@ app.get("/clarity", async (req, res) => {
     const url = `https://api.scraperapi.com?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(targetUrl)}`;
 
     const response = await axios.get(url, {
-      timeout: 30000
+      timeout: 70000
     });
 
     const data = response.data;
