@@ -25,7 +25,7 @@ app.get("/clarity", async (req, res) => {
     const url = `https://rdwb.gia.edu/?reportno=${report}&locale=en_US&env=prod&USEREG=1&qr=false`;
 
     const response = await axios.get(url, {
-      timeout: 20000,
+      timeout: 70000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
