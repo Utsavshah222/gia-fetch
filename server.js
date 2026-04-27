@@ -1,6 +1,5 @@
 const express = require("express");
 const axios = require("axios");
-const cheerio = require("cheerio");
 
 const app = express();
 
@@ -12,48 +11,53 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   GIA FETCH API (STABLE)
+   GIA SCRAPER API
 ========================= */
 app.get("/gia", async (req, res) => {
   const report = req.query.report;
 
   if (!report) {
-    return res.json({ error: "Missing report number" });
+    return res.json({ error: "Report number missing" });
   }
 
   try {
     console.log("Fetching report:", report);
 
-    const url = `https://www.gia.edu/report-check?reportno=${report}`;
+    const apiKey = "04f15187821238376385877391c25996";
 
-    const response = await axios.get(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
-      },
-      timeout: 30000
+    const targetUrl = `https://www.gia.edu/report-check?reportno=${report}`;
+
+    const scraperUrl = `https://api.scraperapi.com/?api_key=${apiKey}&url=${encodeURIComponent(
+      targetUrl
+    )}&render=true&country_code=us`;
+
+    const response = await axios.get(scraperUrl, {
+      timeout: 60000
     });
 
     const html = response.data;
 
     console.log("HTML received length:", html.length);
 
-    const $ = cheerio.load(html);
+    const get = (id) => {
+      const regex = new RegExp(`id="${id}"[^>]*>(.*?)<`, "i");
+      const match = html.match(regex);
 
-    const getValue = (id) => {
-      return $(`#${id}`).text().trim() || "Not Found";
+      return match
+        ? match[1].replace(/<[^>]*>/g, "").trim()
+        : "Not Found";
     };
 
     const data = {
-      clarity: getValue("CLARITY_GRADE"),
-      color: getValue("COLOR_GRADE"),
-      weight: getValue("WEIGHT"),
-      cut: getValue("CUT_GRADE"),
-      polish: getValue("POLISH"),
-      symmetry: getValue("SYMMETRY")
+      clarity: get("CLARITY_GRADE"),
+      color: get("COLOR_GRADE"),
+      weight: get("WEIGHT"),
+      cut: get("CUT_GRADE"),
+      polish: get("POLISH"),
+      symmetry: get("SYMMETRY")
     };
 
-    console.log("Parsed Data:", data);
+    console.log("Parsed data:", data);
 
     res.json(data);
 
