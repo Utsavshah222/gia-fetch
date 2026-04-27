@@ -4,15 +4,15 @@ const puppeteer = require("puppeteer");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Health check
+// HOME ROUTE
 app.get("/", (req, res) => {
   res.json({
     status: "OK",
-    message: "GIA Clarity API Running (Puppeteer Mode)"
+    message: "GIA Clarity API Running (Puppeteer Stable Mode)"
   });
 });
 
-// MAIN API
+// CLARITY API
 app.get("/clarity", async (req, res) => {
   const report = req.query.report;
 
@@ -23,17 +23,21 @@ app.get("/clarity", async (req, res) => {
   let browser = null;
 
   try {
+    // 🔥 IMPORTANT FIX FOR RENDER / LINUX
     browser = await puppeteer.launch({
+      headless: "new",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage"
-      ]
+        "--disable-dev-shm-usage",
+        "--single-process",
+        "--no-zygote"
+      ],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
     });
 
     const page = await browser.newPage();
 
-    // Real browser headers
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
     );
@@ -45,10 +49,10 @@ app.get("/clarity", async (req, res) => {
       timeout: 60000
     });
 
-    // Wait for clarity element
-    await page.waitForSelector("#CLARITY_GRADE", { timeout: 20000 }).catch(() => {});
+    // wait a bit for JS rendering
+    await page.waitForTimeout(3000);
 
-    // Extract data inside browser context
+    // extract clarity
     const clarity = await page.evaluate(() => {
       const el = document.querySelector("#CLARITY_GRADE");
       return el ? el.innerText.trim() : null;
@@ -70,6 +74,7 @@ app.get("/clarity", async (req, res) => {
   }
 });
 
+// START SERVER
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
 });
