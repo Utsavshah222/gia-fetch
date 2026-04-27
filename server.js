@@ -4,36 +4,29 @@ const puppeteer = require("puppeteer");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// HOME ROUTE
 app.get("/", (req, res) => {
-  res.json({
-    status: "OK",
-    message: "GIA Clarity API Running (Puppeteer Stable Mode)"
-  });
+  res.json({ status: "OK" });
 });
 
-// CLARITY API
 app.get("/clarity", async (req, res) => {
   const report = req.query.report;
 
   if (!report) {
-    return res.json({ error: "Report number missing" });
+    return res.json({ error: "Report missing" });
   }
 
-  let browser = null;
+  let browser;
 
   try {
-    // 🔥 IMPORTANT FIX FOR RENDER / LINUX
     browser = await puppeteer.launch({
       headless: "new",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
-        "--single-process",
         "--no-zygote"
       ],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH
     });
 
     const page = await browser.newPage();
@@ -45,14 +38,17 @@ app.get("/clarity", async (req, res) => {
     const url = `https://www.gia.edu/report-check?locale=en_US&reportno=${report}`;
 
     await page.goto(url, {
-      waitUntil: "networkidle2",
+      waitUntil: "domcontentloaded",
       timeout: 60000
     });
 
-    // wait a bit for JS rendering
-    await page.waitForTimeout(3000);
+    // 🔥 EXTRA SAFE WAIT
+    await page.waitForTimeout(5000);
 
-    // extract clarity
+    await page.waitForSelector("#CLARITY_GRADE", {
+      timeout: 20000
+    }).catch(() => {});
+
     const clarity = await page.evaluate(() => {
       const el = document.querySelector("#CLARITY_GRADE");
       return el ? el.innerText.trim() : null;
@@ -61,7 +57,7 @@ app.get("/clarity", async (req, res) => {
     await browser.close();
 
     return res.json({
-      report: report,
+      report,
       clarity: clarity || "Not Found"
     });
 
@@ -74,7 +70,6 @@ app.get("/clarity", async (req, res) => {
   }
 });
 
-// START SERVER
 app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log("Server running on", PORT);
 });
