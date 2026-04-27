@@ -4,10 +4,15 @@ const puppeteer = require("puppeteer");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// Home route
 app.get("/", (req, res) => {
-  res.json({ status: "OK" });
+  res.json({
+    status: "OK",
+    message: "GIA Clarity API Running"
+  });
 });
 
+// CLARITY API
 app.get("/clarity", async (req, res) => {
   const report = req.query.report;
 
@@ -24,9 +29,8 @@ app.get("/clarity", async (req, res) => {
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
-        "--no-zygote"
-      ],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH
+        "--single-process"
+      ]
     });
 
     const page = await browser.newPage();
@@ -42,23 +46,21 @@ app.get("/clarity", async (req, res) => {
       timeout: 60000
     });
 
-    // 🔥 EXTRA SAFE WAIT
-    await page.waitForTimeout(5000);
-
+    // WAIT for clarity element (VERY IMPORTANT)
     await page.waitForSelector("#CLARITY_GRADE", {
-      timeout: 20000
-    }).catch(() => {});
-
-    const clarity = await page.evaluate(() => {
-      const el = document.querySelector("#CLARITY_GRADE");
-      return el ? el.innerText.trim() : null;
+      timeout: 30000
     });
+
+    // Extract ONLY clarity
+    const clarity = await page.$eval("#CLARITY_GRADE", el =>
+      el.innerText.trim()
+    );
 
     await browser.close();
 
     return res.json({
       report,
-      clarity: clarity || "Not Found"
+      clarity
     });
 
   } catch (err) {
