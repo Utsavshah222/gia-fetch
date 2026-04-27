@@ -19,6 +19,7 @@ app.get("/clarity", async (req, res) => {
   try {
     browser = await puppeteer.launch({
       headless: "new",
+      executablePath: "/usr/bin/google-chrome-stable",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
