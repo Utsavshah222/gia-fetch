@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 10000;
 app.get("/", (req, res) => {
   res.json({
     status: "OK",
-    message: "GIA Clarity API Running (RDWB Direct Mode)"
+    message: "GIA API Running (ScraperAPI Mode)"
   });
 });
 
@@ -23,25 +23,26 @@ app.get("/clarity", async (req, res) => {
   }
 
   try {
-    const url = `https://rdwb.gia.edu/?reportno=${report}&locale=en_US&env=prod&USEREG=1&qr=false`;
+    // GIA RDWB URL
+    const targetUrl = `https://rdwb.gia.edu/?reportno=${report}&locale=en_US&env=prod&USEREG=1&qr=false`;
 
-    const response = await axios.get(url, {
-      timeout: 90000,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        "Accept": "application/json",
-        "Referer": "https://www.gia.edu/"
-      }
+    // ScraperAPI wrapper
+    const scraperUrl = `https://api.scraperapi.com/?api_key=04f15187821238376385877391c25996&url=${encodeURIComponent(
+      targetUrl
+    )}&render=true`;
+
+    const response = await axios.get(scraperUrl, {
+      timeout: 60000
     });
 
     const data = response.data;
 
-    // Debug: sometimes structure differs
+    // SAFE EXTRACTION (because structure may change)
     const clarity =
-      data?.data?.clarity ||
-      data?.clarity ||
+      data?.data?.report?.clarity ||
       data?.report?.clarity ||
+      data?.clarity ||
+      extractFromText(data, "CLARITY") ||
       "Not Found";
 
     return res.json({
@@ -55,6 +56,18 @@ app.get("/clarity", async (req, res) => {
     });
   }
 });
+
+// fallback helper (if HTML comes instead of JSON)
+function extractFromText(data, key) {
+  try {
+    const text = typeof data === "string" ? data : JSON.stringify(data);
+    const regex = new RegExp(`${key}[^A-Z0-9]*([A-Z0-9]+)`, "i");
+    const match = text.match(regex);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
 
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
