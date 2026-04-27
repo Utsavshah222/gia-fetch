@@ -1,68 +1,52 @@
-const express = require("express");
 const axios = require("axios");
-
-const app = express();
 
 const API_KEY = "04f15187821238376385877391c25996";
 
-/* =========================
-   HOME
-========================= */
-app.get("/", (req, res) => {
-  res.send("GIA Clarity API Running ✅");
-});
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-/* =========================
-   GET CLARITY ONLY
-========================= */
+async function fetchWithRetry(url) {
+  for (let i = 0; i < 3; i++) {
+    const res = await axios.get(url, { timeout: 60000 });
+
+    if (res.data.includes("CLARITY_GRADE")) {
+      return res.data;
+    }
+
+    console.log("Retrying render...", i + 1);
+    await sleep(3000);
+  }
+
+  return null;
+}
+
 app.get("/clarity", async (req, res) => {
   const report = req.query.report;
 
-  if (!report) {
-    return res.json({ error: "Missing report number" });
-  }
+  if (!report) return res.json({ error: "missing report" });
 
   try {
     const targetUrl = `https://www.gia.edu/report-check?locale=en_US&reportno=${report}`;
 
-    const scraperUrl = `https://api.scraperapi.com/?api_key=${API_KEY}&url=${encodeURIComponent(
-      targetUrl
-    )}&render=true`;
+    const scraperUrl = `https://api.scraperapi.com/?api_key=${API_KEY}&url=${encodeURIComponent(targetUrl)}&render=true`;
 
-    const response = await axios.get(scraperUrl, {
-      timeout: 60000
-    });
+    const html = await fetchWithRetry(scraperUrl);
 
-    const html = response.data;
+    if (!html) {
+      return res.json({
+        report,
+        clarity: "Not Found (render failed)"
+      });
+    }
 
-    // Extract ONLY clarity safely
     const match = html.match(
       /id=["']CLARITY_GRADE["'][^>]*>([^<]+)</i
     );
 
     const clarity = match ? match[1].trim() : "Not Found";
 
-    console.log("Clarity:", clarity);
-
-    res.json({
-      report: report,
-      clarity: clarity
-    });
+    res.json({ report, clarity });
 
   } catch (err) {
-    console.error(err.message);
-
-    res.status(500).json({
-      error: err.message
-    });
+    res.json({ error: err.message });
   }
-});
-
-/* =========================
-   START SERVER
-========================= */
-const PORT = process.env.PORT || 10000;
-
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
 });
