@@ -1,5 +1,5 @@
 const express = require("express");
-const puppeteer = require("puppeteer-core");
+const { chromium } = require("playwright");
 
 const app = express();
 
@@ -7,19 +7,18 @@ app.get("/gia", async (req, res) => {
   const report = req.query.report;
 
   try {
-    const browser = await puppeteer.launch({
-      executablePath: "/usr/bin/chromium-browser",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      headless: "new"
+    const browser = await chromium.launch({
+      args: ["--no-sandbox"]
     });
 
     const page = await browser.newPage();
 
     await page.goto(
       `https://www.gia.edu/report-check?reportno=${report}`,
-      { waitUntil: "networkidle2" }
+      { waitUntil: "domcontentloaded" }
     );
 
+    // wait for data
     await page.waitForSelector("#CLARITY_GRADE", { timeout: 15000 });
 
     const data = await page.evaluate(() => {
