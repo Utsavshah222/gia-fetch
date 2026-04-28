@@ -1,4 +1,4 @@
-app = "gia-api"
+app = "gia-fetch"
 primary_region = "sin"
 
 [build]
