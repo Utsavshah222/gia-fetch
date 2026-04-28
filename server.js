@@ -29,7 +29,6 @@ app.get("/clarity", async (req, res) => {
         "--no-zygote",
         "--disable-extensions",
         "--disable-background-networking",
-        "--disable-dev-shm-usage",
         "--no-first-run",
         "--disable-default-apps"
       ]
@@ -37,7 +36,6 @@ app.get("/clarity", async (req, res) => {
 
     const page = await browser.newPage();
 
-    // Block heavy resources to save memory
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       if (["image", "stylesheet", "font", "media"].includes(req.resourceType())) {
