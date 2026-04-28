@@ -26,11 +26,27 @@ app.get("/clarity", async (req, res) => {
         "--disable-dev-shm-usage",
         "--disable-gpu",
         "--single-process",
-        "--no-zygote"
+        "--no-zygote",
+        "--disable-extensions",
+        "--disable-background-networking",
+        "--disable-dev-shm-usage",
+        "--no-first-run",
+        "--disable-default-apps"
       ]
     });
 
     const page = await browser.newPage();
+
+    // Block heavy resources to save memory
+    await page.setRequestInterception(true);
+    page.on("request", (req) => {
+      if (["image", "stylesheet", "font", "media"].includes(req.resourceType())) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
     );
@@ -77,7 +93,9 @@ app.get("/clarity", async (req, res) => {
     res.json(result);
 
   } catch (err) {
-    if (browser) await browser.close();
+    if (browser) {
+      try { await browser.close(); } catch (_) {}
+    }
     res.status(500).json({ error: err.message });
   }
 });
